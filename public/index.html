@@ -12,16 +12,24 @@
   <div id="app"></div>
   <script>
     let {
-      createApp
+      createApp,
+      h,
+      reactive
     } = VueReactivity
     const App = {
       setup() {
+        const state = reactive({
+          name: 'lee'
+        })
+        setTimeout(() => {
+          state.name = 'dudu'
+        }, 3000);
         return () => {
           return h('div', {
             style: {
               color: 'blue'
             }
-          }, state.name)
+          }, [h('li', {}, '111'), h('li', {}, '111'), h('li', {}, '111')])
         }
       }
     }

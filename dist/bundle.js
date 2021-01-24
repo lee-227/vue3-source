@@ -302,34 +302,94 @@
       var setup = Component.setup;
       if (setup) {
           var setupResult = setup(instance.props);
-          console.log(setupResult);
+          handleSetupResult(instance, setupResult);
       }
+  }
+  function handleSetupResult(instance, setupResult) {
+      if (isFunction(setupResult)) {
+          instance.render = setupResult;
+      }
+      else {
+          instance.setupState = setupResult;
+      }
+      finishComponentSetup(instance);
+  }
+  function finishComponentSetup(instance) {
+      var Component = instance.type;
+      if (Component.render && !instance.render) {
+          instance.render = Component.render;
+      }
+      else if (!instance.render) ;
   }
 
   function createRenderer(options) {
+      var hostCreateElement = options.createElement, hostInsert = options.insert; options.remove; var hostSetElementText = options.setElementText; options.createTextNode; var hostPatchProp = options.patchProp;
       var render = function (vnode, container) {
-          patch(null, vnode);
+          patch(null, vnode, container);
       };
+      var patch = function (n1, n2, container, anchor) {
+          if (anchor === void 0) { anchor = null; }
+          var shapeFlag = n2.shapeFlag;
+          if (shapeFlag & 1 /* ELEMENT */) {
+              processElement(n1, n2, container, anchor);
+          }
+          else if (shapeFlag & 4 /* STATEFUL_COMPONENT */) {
+              processComponent(n1, n2, container);
+          }
+      };
+      var processElement = function (n1, n2, container, anchor) {
+          if (n1 == null) {
+              // 组件挂载
+              mountElement(n2, container, anchor);
+          }
+      };
+      var processComponent = function (n1, n2, container) {
+          if (n1 == null) {
+              mountComponent(n2, container);
+          }
+      };
+      var mountElement = function (vnode, container, anchor) {
+          var type = vnode.type, shapeFlag = vnode.shapeFlag, props = vnode.props, children = vnode.children;
+          var el = (vnode.el = hostCreateElement(type));
+          if (shapeFlag & 8 /* TEXT_CHILDREN */) {
+              hostSetElementText(el, children);
+          }
+          else {
+              mountChildren(children, el);
+          }
+          if (props) {
+              for (var key in props) {
+                  hostPatchProp(el, key, null, props[key]);
+              }
+          }
+          hostInsert(el, container, anchor);
+      };
+      function mountChildren(children, container) {
+          for (var i = 0; i < children.length; i++) {
+              patch(null, children[i], container);
+          }
+      }
+      var mountComponent = function (vnode, container) {
+          var instance = (vnode.component = createComponentInstance(vnode));
+          setupComponent(instance);
+          setupRenderEffect(instance, container);
+      };
+      function setupRenderEffect(instance, container) {
+          effect(function () {
+              if (!instance.isMounted) {
+                  var subTree = (instance.subTree = instance.render());
+                  patch(null, subTree, container);
+              }
+          });
+      }
       return {
           createApp: createAppApi(render),
       };
   }
-  var patch = function (n1, n2, container) {
-      var shapeFlag = n2.shapeFlag;
-      if (shapeFlag & 1 /* ELEMENT */) ;
-      else if (shapeFlag & 4 /* STATEFUL_COMPONENT */) {
-          processComponent(n1, n2);
-      }
-  };
-  var processComponent = function (n1, n2, container) {
-      if (n1 == null) {
-          mountComponent(n2);
-      }
-  };
-  var mountComponent = function (vnode, container) {
-      var instance = (vnode.component = createComponentInstance(vnode));
-      setupComponent(instance);
-  };
+
+  function h(type, props, children) {
+      return createVnode(type, props, children);
+  }
 
   /*! *****************************************************************************
   Copyright (c) Microsoft Corporation.
@@ -447,6 +507,7 @@
   exports.createApp = createApp;
   exports.createRenderer = createRenderer;
   exports.effect = effect;
+  exports.h = h;
   exports.reactive = reactive;
   exports.ref = ref;
   exports.toRefs = toRefs;
