@@ -323,12 +323,16 @@
   }
 
   function createRenderer(options) {
-      var hostCreateElement = options.createElement, hostInsert = options.insert; options.remove; var hostSetElementText = options.setElementText; options.createTextNode; var hostPatchProp = options.patchProp;
+      var hostCreateElement = options.createElement, hostInsert = options.insert, hostRemove = options.remove, hostSetElementText = options.setElementText, hostCreateNode = options.createTextNode, hostPatchProp = options.patchProp;
       var render = function (vnode, container) {
           patch(null, vnode, container);
       };
       var patch = function (n1, n2, container, anchor) {
           if (anchor === void 0) { anchor = null; }
+          if (n1 && !isSameVnodeType(n1, n2)) {
+              hostRemove(n1.el);
+              n1 = null;
+          }
           var shapeFlag = n2.shapeFlag;
           if (shapeFlag & 1 /* ELEMENT */) {
               processElement(n1, n2, container, anchor);
@@ -337,10 +341,16 @@
               processComponent(n1, n2, container);
           }
       };
+      var isSameVnodeType = function (n1, n2) {
+          return n1.type == n2.type && n1.key == n2.key;
+      };
       var processElement = function (n1, n2, container, anchor) {
           if (n1 == null) {
               // 组件挂载
               mountElement(n2, container, anchor);
+          }
+          else {
+              patchElement(n1, n2);
           }
       };
       var processComponent = function (n1, n2, container) {
@@ -369,6 +379,94 @@
               patch(null, children[i], container);
           }
       }
+      var patchElement = function (n1, n2, container) {
+          var el = (n2.el = n1.el);
+          var oldProps = n1.props || {};
+          var nextProps = n2.props || {};
+          patchProps(oldProps, nextProps, el);
+          patchChildren(n1, n2, el);
+      };
+      function patchChildren(n1, n2, el) {
+          var c1 = n1.children;
+          var c2 = n2.children;
+          var prevShapeFlag = n1.shapeFlag;
+          var nextShapeFlag = n2.shapeFlag;
+          if (nextShapeFlag & 8 /* TEXT_CHILDREN */) {
+              if (c2 !== c1) {
+                  hostSetElementText(el, c2);
+              }
+          }
+          else {
+              if (prevShapeFlag & 16 /* ARRAY_CHILDREN */) {
+                  patchKeyedChildren(c1, c2, el);
+              }
+              else {
+                  hostSetElementText(el, "");
+                  mountChildren(c2, el);
+              }
+          }
+      }
+      function patchKeyedChildren(c1, c2, el) {
+          var i = 0;
+          var e1 = c1.length - 1;
+          var e2 = c2.length - 1;
+          while (i <= e1 && i <= e2) {
+              var n1 = c1[i];
+              var n2 = c2[i];
+              if (isSameVnodeType(n1, n2)) {
+                  patch(n1, n2, el);
+              }
+              else {
+                  break;
+              }
+              i++;
+          }
+          while (i <= e1 && i <= e2) {
+              var n1 = c1[e1];
+              var n2 = c2[e2];
+              if (isSameVnodeType(n1, n2)) {
+                  patch(n1, n2, el);
+              }
+              else {
+                  break;
+              }
+              e1--;
+              e2--;
+          }
+          if (i > e1) {
+              if (i <= e2) {
+                  var nextPos = e2 + 1;
+                  var anchor = nextPos < c2.length ? c2[nextPos].el : null;
+                  while (i <= e2) {
+                      patch(null, c2[i], el, anchor);
+                      i++;
+                  }
+              }
+          }
+          else if (i > e2) {
+              while (i <= e1) {
+                  hostRemove(c1[i].el);
+                  i++;
+              }
+          }
+          else ;
+      }
+      function patchProps(oldProps, newProps, el) {
+          if (oldProps !== newProps) {
+              for (var key in newProps) {
+                  var prev = oldProps[key];
+                  var next = newProps[key];
+                  if (prev !== next) {
+                      hostPatchProp(el, key, prev, next);
+                  }
+              }
+              for (var key in oldProps) {
+                  if (!(key in newProps)) {
+                      hostPatchProp(el, key, oldProps[key], null);
+                  }
+              }
+          }
+      }
       var mountComponent = function (vnode, container) {
           var instance = (vnode.component = createComponentInstance(vnode));
           setupComponent(instance);
@@ -379,6 +477,12 @@
               if (!instance.isMounted) {
                   var subTree = (instance.subTree = instance.render());
                   patch(null, subTree, container);
+                  instance.isMounted = true;
+              }
+              else {
+                  var prevTree = instance.subTree;
+                  var nextTree = (instance.subTree = instance.render());
+                  patch(prevTree, nextTree, container);
               }
           });
       }

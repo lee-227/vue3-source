@@ -19,17 +19,27 @@
     const App = {
       setup() {
         const state = reactive({
-          name: 'lee'
+          flag: true
         })
         setTimeout(() => {
-          state.name = 'dudu'
+          state.flag = false
         }, 3000);
         return () => {
           return h('div', {
             style: {
               color: 'blue'
             }
-          }, [h('li', {}, '111'), h('li', {}, '111'), h('li', {}, '111')])
+          }, state.flag ? [h('li', {
+            key: 'B'
+          }, 'B'), h('li', {
+            key: 'C'
+          }, 'C')] : [h('li', {
+            key: 'A'
+          }, 'A'), h('li', {
+            key: 'B'
+          }, 'B'), h('li', {
+            key: 'C'
+          }, 'C')])
         }
       }
     }
