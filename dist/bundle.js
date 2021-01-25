@@ -449,7 +449,88 @@
                   i++;
               }
           }
-          else ;
+          else {
+              var s1 = i;
+              var s2 = i;
+              var keyToNewIndexMap = new Map();
+              for (var i_1 = s2; i_1 < e2; i_1++) {
+                  keyToNewIndexMap.set(c2[i_1].props.key, i_1);
+              }
+              var toBePatched = e2 - s2 + 1;
+              var newIndexToOldIndexMap = new Array(toBePatched);
+              newIndexToOldIndexMap.fill(0);
+              for (var i_2 = s1; i_2 <= e1; i_2++) {
+                  var oldVnode = c1[i_2];
+                  var newIndex = keyToNewIndexMap.get(oldVnode.props.key);
+                  if (newIndex === undefined) {
+                      hostRemove(oldVnode.el);
+                  }
+                  else {
+                      newIndexToOldIndexMap[newIndex - s2] = i_2 + 1;
+                      patch(oldVnode, c2[newIndex], el);
+                  }
+              }
+              var sequence = getSequence(newIndexToOldIndexMap);
+              var j = sequence.length - 1;
+              for (var i_3 = toBePatched - 1; i_3 >= 0; i_3--) {
+                  var nextIndex = s2 + i_3;
+                  var currentEle = c2[nextIndex];
+                  var anchor = nextIndex + 1 <= e2 ? c2[nextIndex + 1].el : null;
+                  if (newIndexToOldIndexMap[i_3] === 0) {
+                      patch(null, currentEle, el, anchor);
+                  }
+                  else {
+                      if (i_3 === sequence[j]) {
+                          j--;
+                      }
+                      else {
+                          hostInsert(currentEle.el, el, anchor);
+                      }
+                  }
+              }
+          }
+      }
+      function getSequence(arr) {
+          // 最长递增子序列的索引
+          var p = arr.slice();
+          var result = [0];
+          var i, j, u, v, c;
+          var len = arr.length;
+          for (i = 0; i < len; i++) {
+              var arrI = arr[i];
+              if (arrI !== 0) {
+                  j = result[result.length - 1];
+                  if (arr[j] < arrI) {
+                      p[i] = j;
+                      result.push(i);
+                      continue;
+                  }
+                  u = 0;
+                  v = result.length - 1;
+                  while (u < v) {
+                      c = ((u + v) / 2) | 0;
+                      if (arr[result[c]] < arrI) {
+                          u = c + 1;
+                      }
+                      else {
+                          v = c;
+                      }
+                  }
+                  if (arrI < arr[result[u]]) {
+                      if (u > 0) {
+                          p[i] = result[u - 1];
+                      }
+                      result[u] = i;
+                  }
+              }
+          }
+          u = result.length;
+          v = result[u - 1];
+          while (u-- > 0) {
+              result[u] = v;
+              v = p[v];
+          }
+          return result;
       }
       function patchProps(oldProps, newProps, el) {
           if (oldProps !== newProps) {

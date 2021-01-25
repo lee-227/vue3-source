@@ -131,8 +131,83 @@ export function createRenderer(options) {
         i++;
       }
     } else {
-      
+      const s1 = i;
+      const s2 = i;
+      const keyToNewIndexMap = new Map();
+      for (let i = s2; i < e2; i++) {
+        keyToNewIndexMap.set(c2[i].props.key, i);
+      }
+      const toBePatched = e2 - s2 + 1;
+      const newIndexToOldIndexMap = new Array(toBePatched);
+      newIndexToOldIndexMap.fill(0);
+      for (let i = s1; i <= e1; i++) {
+        const oldVnode = c1[i];
+        let newIndex = keyToNewIndexMap.get(oldVnode.props.key);
+        if (newIndex === undefined) {
+          hostRemove(oldVnode.el);
+        } else {
+          newIndexToOldIndexMap[newIndex - s2] = i + 1;
+          patch(oldVnode, c2[newIndex], el);
+        }
+      }
+      let sequence = getSequence(newIndexToOldIndexMap);
+      let j = sequence.length - 1;
+      for (let i = toBePatched - 1; i >= 0; i--) {
+        const nextIndex = s2 + i;
+        const currentEle = c2[nextIndex];
+        const anchor = nextIndex + 1 <= e2 ? c2[nextIndex + 1].el : null;
+        if (newIndexToOldIndexMap[i] === 0) {
+          patch(null, currentEle, el, anchor);
+        } else {
+          if (i === sequence[j]) {
+            j--;
+          } else {
+            hostInsert(currentEle.el, el, anchor);
+          }
+        }
+      }
     }
+  }
+  function getSequence(arr) {
+    // 最长递增子序列的索引
+    const p = arr.slice();
+    const result = [0];
+    let i, j, u, v, c;
+    const len = arr.length;
+    for (i = 0; i < len; i++) {
+      const arrI = arr[i];
+      if (arrI !== 0) {
+        j = result[result.length - 1];
+        if (arr[j] < arrI) {
+          p[i] = j;
+          result.push(i);
+          continue;
+        }
+        u = 0;
+        v = result.length - 1;
+        while (u < v) {
+          c = ((u + v) / 2) | 0;
+          if (arr[result[c]] < arrI) {
+            u = c + 1;
+          } else {
+            v = c;
+          }
+        }
+        if (arrI < arr[result[u]]) {
+          if (u > 0) {
+            p[i] = result[u - 1];
+          }
+          result[u] = i;
+        }
+      }
+    }
+    u = result.length;
+    v = result[u - 1];
+    while (u-- > 0) {
+      result[u] = v;
+      v = p[v];
+    }
+    return result;
   }
   function patchProps(oldProps, newProps, el) {
     if (oldProps !== newProps) {
